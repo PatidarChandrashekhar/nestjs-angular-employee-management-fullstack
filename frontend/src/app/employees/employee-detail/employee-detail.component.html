@@ -1,0 +1,170 @@
+<div class="page">
+  @if (isLoading()) {
+    <div class="skeleton-list">
+      @for (i of [1, 2, 3]; track i) {
+        <div class="skeleton-row"></div>
+      }
+    </div>
+  } @else {
+    <a routerLink="/employees" class="btn-ghost" style="margin-bottom: 1rem; width: fit-content">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+        <path d="m15 18-6-6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      Back to employees
+    </a>
+
+    <div class="card form-header">
+      <span class="avatar">{{ initials() }}</span>
+      <div class="form-header-meta">
+        <h1>{{ isNew() ? 'New Employee' : fullName() || 'Employee' }}</h1>
+        <div class="form-header-tags">
+          @if (!isNew()) {
+            <span class="id-chip">{{ form().employee_id }}</span>
+            <span class="status-badge" [class]="'status-' + form().status.toLowerCase()">
+              {{ form().status }}
+            </span>
+          } @else {
+            <span class="page-subtitle" style="margin-top:0">Fill in the details below to add a new employee.</span>
+          }
+        </div>
+      </div>
+    </div>
+
+    @if (validationErrors().length > 0) {
+      <ul class="validation-errors">
+        @for (err of validationErrors(); track err) {
+          <li>{{ err }}</li>
+        }
+      </ul>
+    }
+
+    <form class="employee-form" (ngSubmit)="submit()">
+      <fieldset [disabled]="!canEdit()">
+        <div class="card form-section">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" stroke-linecap="round" />
+            </svg>
+            Basic information
+          </h2>
+          <div class="form-grid">
+            <label>
+              Employee ID
+              <input [ngModel]="form().employee_id" (ngModelChange)="updateField('employee_id', $event)" name="employee_id" [disabled]="!isNew()" />
+            </label>
+            <label>
+              First Name
+              <input [ngModel]="form().first_name" (ngModelChange)="updateField('first_name', $event)" name="first_name" />
+            </label>
+            <label>
+              Last Name
+              <input [ngModel]="form().last_name" (ngModelChange)="updateField('last_name', $event)" name="last_name" />
+            </label>
+            <label>
+              Email
+              <input type="email" [ngModel]="form().email" (ngModelChange)="updateField('email', $event)" name="email" />
+            </label>
+            <label>
+              Phone
+              <input [ngModel]="form().phone" (ngModelChange)="updateField('phone', $event)" name="phone" />
+            </label>
+          </div>
+        </div>
+
+        <div class="card form-section">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="7" width="18" height="13" rx="2" />
+              <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-linecap="round" />
+            </svg>
+            Employment details
+          </h2>
+          <div class="form-grid">
+            <label>
+              Hire Date
+              <input type="date" [ngModel]="form().hire_date" (ngModelChange)="updateField('hire_date', $event)" name="hire_date" />
+            </label>
+            <label>
+              Department
+              <input [ngModel]="form().department" (ngModelChange)="updateField('department', $event)" name="department" />
+            </label>
+            <label>
+              Job Title
+              <input [ngModel]="form().job_title" (ngModelChange)="updateField('job_title', $event)" name="job_title" />
+            </label>
+            <label>
+              Salary
+              <input type="number" min="0" [ngModel]="form().salary" (ngModelChange)="updateField('salary', $event)" name="salary" />
+            </label>
+            <label>
+              Status
+              <select [ngModel]="form().status" (ngModelChange)="updateField('status', $event)" name="status">
+                <option value="Active">Active</option>
+                <option value="OnLeave">On Leave</option>
+                <option value="Terminated">Terminated</option>
+              </select>
+            </label>
+            <label>
+              Skills (comma-separated)
+              <input [ngModel]="form().skillsCsv" (ngModelChange)="updateField('skillsCsv', $event)" name="skillsCsv" />
+            </label>
+            <label>
+              Manager ID (optional)
+              <input [ngModel]="form().manager_id" (ngModelChange)="updateField('manager_id', $event)" name="manager_id" placeholder="Mongo ObjectId" />
+            </label>
+          </div>
+        </div>
+
+        <div class="card form-section">
+          <h2>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path
+                d="M12 21s-7-4.6-7-11a7 7 0 0 1 14 0c0 6.4-7 11-7 11Z"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <circle cx="12" cy="10" r="2.5" />
+            </svg>
+            Address
+          </h2>
+          <div class="form-grid">
+            <label>
+              Street
+              <input [ngModel]="form().street" (ngModelChange)="updateField('street', $event)" name="street" />
+            </label>
+            <label>
+              City
+              <input [ngModel]="form().city" (ngModelChange)="updateField('city', $event)" name="city" />
+            </label>
+            <label>
+              State
+              <input [ngModel]="form().state" (ngModelChange)="updateField('state', $event)" name="state" />
+            </label>
+            <label>
+              Zip Code
+              <input [ngModel]="form().zip_code" (ngModelChange)="updateField('zip_code', $event)" name="zip_code" />
+            </label>
+            <label>
+              Country
+              <input [ngModel]="form().country" (ngModelChange)="updateField('country', $event)" name="country" />
+            </label>
+          </div>
+        </div>
+
+        @if (canEdit()) {
+          <div class="card form-actions">
+            <button type="button" class="btn-secondary" (click)="cancel()">Cancel</button>
+            <button type="submit" class="btn-primary" [disabled]="isSaving()">
+              @if (isSaving()) {
+                Saving…
+              } @else {
+                {{ isNew() ? 'Create employee' : 'Save changes' }}
+              }
+            </button>
+          </div>
+        }
+      </fieldset>
+    </form>
+  }
+</div>

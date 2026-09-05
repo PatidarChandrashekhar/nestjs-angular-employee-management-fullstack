@@ -1,0 +1,29 @@
+{
+  "name": "nestjs-angular-employee-management-fullstack",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "overrides": {
+    "rxjs": "7.8.2"
+  },
+  "scripts": {
+    "graph": "nx graph",
+    "serve:backend": "nx serve backend",
+    "serve:frontend": "nx serve frontend",
+    "build:backend": "nx build backend",
+    "build:frontend": "nx build frontend",
+    "build": "nx run-many -t build",
+    "test": "nx run-many -t test",
+    "lint": "nx run-many -t lint",
+    "affected:build": "nx affected -t build",
+    "affected:test": "nx affected -t test",
+    "affected:lint": "nx affected -t lint"
+  },
+  "devDependencies": {
+    "nx": "^20.5.0"
+  }
+}

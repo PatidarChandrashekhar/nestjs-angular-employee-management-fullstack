@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/coverage
+**/.angular
+.nx/cache
+.nx/workspace-data
+**/*.log
+.DS_Store
+postman
+ARCHITECTURE.md
+README.md

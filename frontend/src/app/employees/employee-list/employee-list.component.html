@@ -1,0 +1,240 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Employees</h1>
+      <p class="page-subtitle">Search, filter, and manage your workforce.</p>
+    </div>
+    @if (canManage()) {
+      <a routerLink="/employees/new" class="btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <path d="M12 5v14M5 12h14" stroke-linecap="round" />
+        </svg>
+        New Employee
+      </a>
+    }
+  </header>
+
+  <div class="stats-row">
+    <div class="card stat-card accent">
+      <span class="stat-value">{{ total() }}</span>
+      <span class="stat-label">Total employees</span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-value">{{ employees().length }}</span>
+      <span class="stat-label">Shown on this page</span>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-value">{{ currentPage() }} / {{ totalPages() }}</span>
+      <span class="stat-label">Page</span>
+    </div>
+  </div>
+
+  <div class="filters card">
+    <span class="input-icon-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m21 21-4.35-4.35" stroke-linecap="round" />
+      </svg>
+      <input
+        type="search"
+        placeholder="Search name, email, job title…"
+        [ngModel]="searchTerm()"
+        (ngModelChange)="searchTerm.set($event)"
+      />
+    </span>
+    <input
+      type="text"
+      placeholder="Department"
+      [ngModel]="departmentFilter()"
+      (ngModelChange)="departmentFilter.set($event)"
+    />
+    <select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
+      <option value="">All statuses</option>
+      <option value="Active">Active</option>
+      <option value="OnLeave">On Leave</option>
+      <option value="Terminated">Terminated</option>
+    </select>
+  </div>
+
+  @defer (on viewport; prefetch on idle) {
+    @if (isLoading()) {
+      <div class="skeleton-list">
+        @for (i of [1, 2, 3, 4, 5]; track i) {
+          <div class="skeleton-row"></div>
+        }
+      </div>
+    } @else if (employees().length === 0) {
+      <div class="card empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" stroke-linecap="round" />
+        </svg>
+        <p>No employees match these filters.</p>
+      </div>
+    } @else {
+      <div class="card table-card">
+        <table class="employee-table">
+          <thead>
+            <tr>
+              <th [attr.aria-sort]="ariaSort('first_name')">
+                <button
+                  type="button"
+                  class="th-sort"
+                  [class.is-active]="sortBy() === 'first_name'"
+                  [class.is-desc]="sortBy() === 'first_name' && sortOrder() === 'desc'"
+                  (click)="toggleSort('first_name')"
+                >
+                  Employee
+                  <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="m6 15 6-6 6 6" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </th>
+              <th [attr.aria-sort]="ariaSort('employee_id')">
+                <button
+                  type="button"
+                  class="th-sort"
+                  [class.is-active]="sortBy() === 'employee_id'"
+                  [class.is-desc]="sortBy() === 'employee_id' && sortOrder() === 'desc'"
+                  (click)="toggleSort('employee_id')"
+                >
+                  ID
+                  <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="m6 15 6-6 6 6" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </th>
+              <th [attr.aria-sort]="ariaSort('department')">
+                <button
+                  type="button"
+                  class="th-sort"
+                  [class.is-active]="sortBy() === 'department'"
+                  [class.is-desc]="sortBy() === 'department' && sortOrder() === 'desc'"
+                  (click)="toggleSort('department')"
+                >
+                  Department
+                  <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="m6 15 6-6 6 6" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </th>
+              <th [attr.aria-sort]="ariaSort('job_title')">
+                <button
+                  type="button"
+                  class="th-sort"
+                  [class.is-active]="sortBy() === 'job_title'"
+                  [class.is-desc]="sortBy() === 'job_title' && sortOrder() === 'desc'"
+                  (click)="toggleSort('job_title')"
+                >
+                  Job Title
+                  <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="m6 15 6-6 6 6" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </th>
+              <th [attr.aria-sort]="ariaSort('status')">
+                <button
+                  type="button"
+                  class="th-sort"
+                  [class.is-active]="sortBy() === 'status'"
+                  [class.is-desc]="sortBy() === 'status' && sortOrder() === 'desc'"
+                  (click)="toggleSort('status')"
+                >
+                  Status
+                  <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="m6 15 6-6 6 6" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+              </th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (employee of employees(); track employee._id) {
+              <tr>
+                <td>
+                  <div class="employee-cell">
+                    <span class="avatar">{{ initials(employee) }}</span>
+                    <div class="employee-cell-meta">
+                      <a class="employee-cell-name" [routerLink]="['/employees', employee._id]">
+                        {{ employee.first_name }} {{ employee.last_name }}
+                      </a>
+                      <span class="employee-cell-email">{{ employee.email }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="id-chip">{{ employee.employee_id }}</span></td>
+                <td>{{ employee.department }}</td>
+                <td>{{ employee.job_title }}</td>
+                <td>
+                  <span class="status-badge" [class]="'status-' + employee.status.toLowerCase()">
+                    {{ employee.status }}
+                  </span>
+                </td>
+                <td>
+                  <div class="row-actions">
+                    <a
+                      class="btn-icon"
+                      [routerLink]="['/employees', employee._id]"
+                      title="View / edit"
+                      aria-label="View or edit employee"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path
+                          d="M11 4H4v16h16v-7M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    </a>
+                    @if (canManage()) {
+                      <button
+                        type="button"
+                        class="btn-icon"
+                        title="Remove employee"
+                        aria-label="Remove employee"
+                        (click)="remove(employee)"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path
+                            d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16Z"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <nav class="pagination" aria-label="Pagination">
+        <button type="button" (click)="goToPage(currentPage() - 1)" [disabled]="currentPage() === 1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <path d="m15 18-6-6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Previous
+        </button>
+        <span>Page {{ currentPage() }} of {{ totalPages() }} ({{ total() }} total)</span>
+        <button type="button" (click)="goToPage(currentPage() + 1)" [disabled]="currentPage() === totalPages()">
+          Next
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <path d="m9 18 6-6-6-6" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+      </nav>
+    }
+  } @placeholder {
+    <div class="skeleton-list">
+      @for (i of [1, 2, 3]; track i) {
+        <div class="skeleton-row"></div>
+      }
+    </div>
+  } @loading (minimum 200ms) {
+    <p>Loading employees…</p>
+  }
+</div>

@@ -1,0 +1,13 @@
+{
+  "name": "backend",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "root": "backend",
+  "sourceRoot": "backend/src",
+  "projectType": "application",
+  "targets": {
+    "serve": {
+      "executor": "nx:run-script",
+      "options": { "script": "start:dev" }
+    }
+  }
+}

@@ -1,0 +1,419 @@
+{
+  "info": {
+    "_postman_id": "e3b0c442-98fc-4c11-9e6a-000000000001",
+    "name": "Employee Management API",
+    "description": "Complete collection for the NestJS Employee Management API.\n\nBase URL: `{{baseUrl}}` -> defaults to `http://localhost:3000/api/v1` (API_PREFIX=api, API_VERSION=v1, URI versioning).\n\nWorkflow:\n1. Run **Auth > Login** first (defaults to the seeded admin account). This automatically stores `accessToken` / `refreshToken` as collection variables.\n2. All **Employees** requests use the collection-level Bearer auth (`{{accessToken}}`) automatically.\n3. **Employees > Create Employee** automatically stores the returned `_id` as `employeeId`, which the rest of the Employees folder reuses.\n4. Use **Auth > Refresh Token** to rotate tokens, and **Auth > Logout** to revoke the refresh token.\n\nRoles: `admin`, `hr`, `employee` (RBAC via `RolesGuard`, honored when `RBAC_ENABLED=true`).\n- Create / Replace / Update / Soft Delete employee -> roles `admin` or `hr`.\n- Hard delete (purge) employee -> role `admin` only.\n- List / Get employee -> any authenticated user.\n\nSeeded credentials (from `.env` defaults, see `SEED_ADMIN_EMAIL` / `SEED_HR_EMAIL`):\n- admin@company.com / Admin@12345 (role: admin)\n- hr@company.com / HrUser@12345 (role: hr)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{accessToken}}", "type": "string" }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": { "type": "text/javascript", "exec": [""] }
+    },
+    {
+      "listen": "test",
+      "script": { "type": "text/javascript", "exec": [""] }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api/v1", "type": "string" },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "refreshToken", "value": "", "type": "string" },
+    { "key": "employeeId", "value": "", "type": "string" },
+    { "key": "managerId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Authentication endpoints. `login` and `refresh` do not require a Bearer token (refresh reads the token from the request body via a dedicated `jwt-refresh` passport strategy). `logout` requires a valid access token.",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@company.com\",\n  \"password\": \"Admin@12345\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Authenticate with email + password, receive an access/refresh token pair.\n\nThrottled: max 5 requests / 60s.\n\nResponses:\n- 200 OK: login successful, returns `{ accessToken, refreshToken }`\n- 401 Unauthorized: invalid credentials"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.accessToken) {",
+                  "        pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "    }",
+                  "    if (json.refreshToken) {",
+                  "        pm.collectionVariables.set('refreshToken', json.refreshToken);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login (HR account)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"hr@company.com\",\n  \"password\": \"HrUser@12345\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Convenience request to authenticate as the seeded HR user instead of admin. Also auto-captures tokens (does not overwrite unless run)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.accessToken) {",
+                  "        pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "    }",
+                  "    if (json.refreshToken) {",
+                  "        pm.collectionVariables.set('refreshToken', json.refreshToken);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Exchange a valid refresh token for a new access/refresh token pair. The refresh token is rotated (the old one is invalidated server-side). Note: the token is read from the JSON body, not the Authorization header."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.accessToken) {",
+                  "        pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "    }",
+                  "    if (json.refreshToken) {",
+                  "        pm.collectionVariables.set('refreshToken', json.refreshToken);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Revoke the current refresh token for the authenticated user (requires a valid access token via Bearer auth). Body must still be a valid `RefreshTokenDto` shape due to global `whitelist`/`forbidNonWhitelisted` validation.\n\nResponse: 204 No Content."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Employees",
+      "description": "Employee CRUD endpoints. All routes require a Bearer access token (`JwtAuthGuard`) and are additionally gated by role (`RolesGuard`) where noted. Roles: admin, hr, employee.",
+      "item": [
+        {
+          "name": "Create Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": \"EMP10024\",\n  \"first_name\": \"Jane\",\n  \"last_name\": \"Doe\",\n  \"email\": \"jane.doe@company.com\",\n  \"phone\": \"+1-555-0199\",\n  \"hire_date\": \"2024-03-15T00:00:00Z\",\n  \"department\": \"Engineering\",\n  \"job_title\": \"Senior Full-Stack Engineer\",\n  \"salary\": 115000,\n  \"status\": \"Active\",\n  \"address\": {\n    \"street\": \"123 Main Street\",\n    \"city\": \"Austin\",\n    \"state\": \"TX\",\n    \"zip_code\": \"78701\",\n    \"country\": \"USA\"\n  },\n  \"skills\": [\"JavaScript\", \"Node.js\", \"MongoDB\"],\n  \"manager_id\": \"{{managerId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees"]
+            },
+            "description": "Create a new employee record. Requires role `admin` or `hr`.\n\n`manager_id` is optional (must be a valid Mongo ObjectId if provided; leave `{{managerId}}` empty/remove the field if you don't have one).\n\n`status` must be one of: `Active`, `OnLeave`, `Terminated`.\n\nResponses:\n- 201 Created\n- 409 Conflict: `employee_id` or `email` already exists"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    const id = json._id || json.id;",
+                  "    if (id) {",
+                  "        pm.collectionVariables.set('employeeId', id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "List Employees",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/employees?page=1&limit=10&search=&department=&status=&sortBy=hire_date&sortOrder=desc&includeDeleted=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees"],
+              "query": [
+                { "key": "page", "value": "1", "description": "Page number (default from PAGINATION_DEFAULT_PAGE)" },
+                { "key": "limit", "value": "10", "description": "Page size (default/capped via PAGINATION_DEFAULT_LIMIT / PAGINATION_MAX_LIMIT)" },
+                { "key": "search", "value": "", "description": "Free-text search across name, email, job title", "disabled": true },
+                { "key": "department", "value": "", "description": "Filter by department", "disabled": true },
+                { "key": "status", "value": "", "description": "Filter by status: Active | OnLeave | Terminated", "disabled": true },
+                { "key": "sortBy", "value": "hire_date", "description": "employee_id | last_name | department | hire_date | salary", "disabled": true },
+                { "key": "sortOrder", "value": "desc", "description": "asc | desc", "disabled": true },
+                { "key": "includeDeleted", "value": "false", "description": "Admin-only: include soft-deleted employees", "disabled": true }
+              ]
+            },
+            "description": "List employees with pagination, filtering, and sorting. `includeDeleted` is silently forced to `false` server-side unless the caller has the `admin` role."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Employee by Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/employees/{{employeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees", "{{employeeId}}"]
+            },
+            "description": "Get a single employee by id. `id` must be a valid Mongo ObjectId (validated by `ParseMongoIdPipe`).\n\nResponses:\n- 200 OK\n- 400 Bad Request: malformed id\n- 404 Not Found"
+          },
+          "response": []
+        },
+        {
+          "name": "Replace Employee (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": \"EMP10024\",\n  \"first_name\": \"Jane\",\n  \"last_name\": \"Doe\",\n  \"email\": \"jane.doe@company.com\",\n  \"phone\": \"+1-555-0177\",\n  \"hire_date\": \"2024-03-15T00:00:00Z\",\n  \"department\": \"Engineering\",\n  \"job_title\": \"Staff Engineer\",\n  \"salary\": 128000,\n  \"status\": \"Active\",\n  \"address\": {\n    \"street\": \"456 Oak Avenue\",\n    \"city\": \"Austin\",\n    \"state\": \"TX\",\n    \"zip_code\": \"78702\",\n    \"country\": \"USA\"\n  },\n  \"skills\": [\"JavaScript\", \"TypeScript\", \"NestJS\", \"MongoDB\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/employees/{{employeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees", "{{employeeId}}"]
+            },
+            "description": "Replace an employee record in full (PUT semantics — every field in `CreateEmployeeDto` is required). Requires role `admin` or `hr`."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Employee (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"job_title\": \"Principal Engineer\",\n  \"salary\": 145000,\n  \"status\": \"Active\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/employees/{{employeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees", "{{employeeId}}"]
+            },
+            "description": "Partially update an employee record — any subset of `CreateEmployeeDto` fields, applied as a `$set`. Requires role `admin` or `hr`."
+          },
+          "response": []
+        },
+        {
+          "name": "Soft Delete Employee",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/employees/{{employeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees", "{{employeeId}}"]
+            },
+            "description": "Soft delete an employee: marks status `Terminated` and sets `deleted_at`. Requires role `admin` or `hr`.\n\nResponse: 204 No Content."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Hard Delete Employee (Purge)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/employees/{{employeeId}}/purge",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees", "{{employeeId}}", "purge"]
+            },
+            "description": "Admin-only: permanently and irreversibly delete an employee record from the database. Requires role `admin`.\n\nResponse: 204 No Content."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 204', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "description": "Kubernetes/orchestrator-style health probes. No authentication required.",
+      "item": [
+        {
+          "name": "Liveness",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/live",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "live"]
+            },
+            "description": "Liveness probe: is the process itself up? No dependency checks — an orchestrator uses this to decide whether to restart the container."
+          },
+          "response": []
+        },
+        {
+          "name": "Readiness",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/ready",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "ready"]
+            },
+            "description": "Readiness probe: is the app ready to serve traffic? Checks the MongoDB connection. An orchestrator uses this to decide whether to route traffic to the pod."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

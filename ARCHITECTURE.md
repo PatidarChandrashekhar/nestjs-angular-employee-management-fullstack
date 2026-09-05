@@ -262,13 +262,15 @@ sequenceDiagram
 ## 11. Backend request-level toggle matrix
 
 ```mermaid
+flowchart LR
+    ENV[".env (backend)"] --> JB["JWT_BYPASS"]
     ENV --> RB["RBAC_ENABLED"]
     ENV --> LG["LOGGING_ENABLED"]
     ENV --> SW["SWAGGER_ENABLED"]
     ENV --> TH["THROTTLE_ENABLED"]
     ENV --> CO["CORS_ENABLED"]
 
-    JB -->|true| J1["JwtAuthGuard injects a fake admin user,<br/>skips real token verification<br/>(blocked automatically in production)"]
+    JB -->|"true (dev only,<br/>forced false in prod)"| J1["JwtAuthGuard injects a fake admin user,<br/>skips real token verification<br/>(blocked automatically in production)"]
     JB -->|false| J2["Standard Passport JWT verification"]
 
     RB -->|false| R1["RolesGuard is a no-op —<br/>any authenticated user passes"]
@@ -282,6 +284,9 @@ sequenceDiagram
 
     TH -->|false| T1["Throttler limit effectively unlimited"]
     TH -->|true| T2["THROTTLE_LIMIT per THROTTLE_TTL enforced<br/>(tighter limits on /auth/*)"]
+
+    CO -->|true| C1["CORS enabled — only CORS_ORIGIN allowed"]
+    CO -->|false| C2["CORS disabled — cross-origin requests blocked"]
 ```
 
 ## 12. Frontend toggle matrix

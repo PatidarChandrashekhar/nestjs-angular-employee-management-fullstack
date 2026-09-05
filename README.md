@@ -8,6 +8,94 @@ Production-ready Employee Management System.
 - `docker-compose.yml` — spins up MongoDB + the API + the frontend together.
 - `package.json` / `nx.json` — root Nx workspace that orchestrates both apps (see [Monorepo tooling (Nx)](#monorepo-tooling-nx) below).
 
+## How it fits together
+
+Three views of the same monorepo: how the workspace is laid out, how the
+two apps talk to each other and MongoDB at runtime, and how source becomes
+running containers. For request-level flows (auth, RBAC, pagination, soft
+delete, the frontend interceptor chain), see [ARCHITECTURE.md](ARCHITECTURE.md).
+
+### 1. Monorepo layout (npm workspaces + Nx)
+
+```mermaid
+flowchart TB
+    subgraph Root["Repo root"]
+        RootPkg["package.json<br/>workspaces: [backend, frontend]"]
+        NxJson["nx.json<br/>task cache · target defaults · affected graph"]
+        Compose["docker-compose.yml<br/>context: . for both service builds"]
+    end
+
+    subgraph BackendWs["backend/ — Nx project 'backend'"]
+        BePkg["package.json<br/>NestJS 10 · Mongoose · Passport-JWT"]
+        BeProj["project.json<br/>serve → nest start --watch"]
+    end
+
+    subgraph FrontendWs["frontend/ — Nx project 'frontend'"]
+        FePkg["package.json<br/>Angular 18 · Signals · standalone components"]
+        FeProj["project.json<br/>serve → ng serve"]
+    end
+
+    RootPkg -- "single npm install<br/>hoists + dedupes into one node_modules" --> BackendWs
+    RootPkg -- "single npm install<br/>hoists + dedupes into one node_modules" --> FrontendWs
+    NxJson -- "nx run-many / nx affected<br/>build · test · lint (cached)" --> BackendWs
+    NxJson -- "nx run-many / nx affected<br/>build · test · lint (cached)" --> FrontendWs
+    Compose -.->|"builds backend/Dockerfile"| BackendWs
+    Compose -.->|"builds frontend/Dockerfile"| FrontendWs
+```
+
+### 2. Runtime connectivity — local dev vs. Docker
+
+```mermaid
+flowchart LR
+    subgraph Dev["Local dev — 3 terminals, no Docker for the apps"]
+        direction TB
+        FEd["Angular dev server<br/>ng serve · localhost:4200"]
+        BEd["NestJS API<br/>nest start --watch · localhost:3000"]
+        DBd[("MongoDB<br/>docker compose up -d mongo<br/>localhost:27017")]
+        FEd -- "REST + JWT Bearer<br/>API_BASE_URL from frontend/.env" --> BEd
+        BEd -- "Mongoose<br/>MONGODB_URI from backend/.env" --> DBd
+    end
+
+    subgraph Docker["docker compose up --build — one bridge network"]
+        direction TB
+        FEp["web container (nginx)<br/>host :4200 → container :80"]
+        BEp["api container (node)<br/>host :3000 → container :3000"]
+        DBp[("mongo container<br/>host :27017 → container :27017")]
+        FEp -- "REST + JWT Bearer<br/>browser calls host :3000 directly" --> BEp
+        BEp -- "Mongoose<br/>MONGODB_URI=mongodb://mongo:27017<br/>(service name, overridden by compose)" --> DBp
+    end
+```
+
+### 3. Build pipeline — Nx targets → multi-stage Docker images
+
+```mermaid
+flowchart TB
+    Src(["backend/src/**  ·  frontend/src/**"]) --> NxBuild{"npx nx run-many -t build<br/>(or nx affected -t build)"}
+    NxBuild -->|cached, dependency-graph aware| BeBuild["nx build backend<br/>nest build → backend/dist"]
+    NxBuild -->|cached, dependency-graph aware| FeBuild["nx build frontend<br/>ng build → frontend/dist/web"]
+
+    subgraph BEImg["backend/Dockerfile (build context: repo root)"]
+        direction TB
+        D1["deps stage<br/>node:20-alpine<br/>npm ci (full workspace tree)"] --> D2["builder stage<br/>npx nx build backend"]
+        D3["prod-deps stage<br/>npm ci --omit=dev --workspace=backend"]
+        D2 --> D4["runtime stage<br/>copy dist/ + prod node_modules<br/>non-root user · EXPOSE 3000"]
+        D3 --> D4
+    end
+
+    subgraph FEImg["frontend/Dockerfile (build context: repo root)"]
+        direction TB
+        F1["builder stage<br/>node:20-alpine<br/>npm ci + npx nx build frontend"] --> F2["runtime stage<br/>nginx:1.27-alpine<br/>serves dist/web/browser · EXPOSE 80"]
+    end
+
+    BeBuild -. "same nx target,<br/>run manually or in Dockerfile" .-> D2
+    FeBuild -. "same nx target,<br/>run manually or in Dockerfile" .-> F1
+
+    D4 --> Up["docker compose up --build"]
+    F2 --> Up
+    Mongo["mongo:7 (pulled, not built)"] --> Up
+    Up --> Running["3 containers on one network:<br/>employee-mgmt-mongo · -api · -web"]
+```
+
 ## Quick start (everything, via Docker)
 
 ```bash
